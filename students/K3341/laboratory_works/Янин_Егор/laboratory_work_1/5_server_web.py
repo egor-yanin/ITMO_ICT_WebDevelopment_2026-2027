@@ -172,6 +172,12 @@ class MyHTTPServer:
     <thead><tr><th>Дисциплина</th><th>Оценки</th></tr></thead>
     <tbody>{}</tbody>
   </table>
+  <h2>Добавить оценку</h2>
+  <form action="/" method="post">
+    <label>Дисциплина <input name="discipline" required></label>
+    <label>Оценка <input name="grade" required></label>
+    <button type="submit">Добавить</button>
+  </form>
 </body>
 </html>'''.format(rows)
 
