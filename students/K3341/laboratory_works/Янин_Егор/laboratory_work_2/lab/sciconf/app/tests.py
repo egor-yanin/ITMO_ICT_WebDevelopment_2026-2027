@@ -1,4 +1,7 @@
+from io import StringIO
+
 from django.contrib.auth import get_user_model
+from django.core.management import call_command
 from django.test import TestCase
 from django.urls import reverse
 
@@ -22,7 +25,7 @@ class RegistrationViewTests(TestCase):
             },
         )
 
-        self.assertRedirects(response, reverse("login"))
+        self.assertRedirects(response, reverse("conference_list"))
         user = get_user_model().objects.get(username="conference_author")
         self.assertTrue(user.check_password("Strong-test-password-739!"))
 
@@ -96,6 +99,7 @@ class ConferenceDetailViewTests(TestCase):
         )
         self.conference = Conference.objects.create(
             name="SciConf 2026",
+            description="Научная конференция о современных исследованиях.",
             location=self.location,
             start_date="2026-11-10",
             end_date="2026-11-12",
@@ -110,6 +114,7 @@ class ConferenceDetailViewTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertContains(response, self.conference.name)
+        self.assertContains(response, self.conference.description)
         self.assertContains(response, self.location.name)
         self.assertContains(response, self.theme.name)
         self.assertContains(response, self.conference.participation_terms)
@@ -311,6 +316,27 @@ class ConferenceListViewTests(TestCase):
         self.assertContains(response, "Выйти")
         self.assertNotContains(response, "Войти")
         self.assertContains(response, f'action="{reverse("logout")}"')
+
+
+class DemoDataCommandTests(TestCase):
+    def test_command_creates_descriptive_conferences_and_is_idempotent(self):
+        call_command("seed_demo_data", stdout=StringIO())
+
+        self.assertEqual(Conference.objects.count(), 7)
+        self.assertEqual(Location.objects.count(), 4)
+        self.assertEqual(Theme.objects.count(), 5)
+        conference = Conference.objects.get(
+            name="SciConf: Искусственный интеллект 2027"
+        )
+        self.assertTrue(conference.description)
+        self.assertTrue(conference.themes.exists())
+        self.assertTrue(all(theme.description for theme in Theme.objects.all()))
+
+        call_command("seed_demo_data", stdout=StringIO())
+
+        self.assertEqual(Conference.objects.count(), 7)
+        self.assertEqual(Location.objects.count(), 4)
+        self.assertEqual(Theme.objects.count(), 5)
 
 
 class TalkSubmissionViewTests(TestCase):
