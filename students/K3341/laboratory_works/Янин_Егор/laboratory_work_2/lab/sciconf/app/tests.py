@@ -487,3 +487,66 @@ class TalkSubmissionViewTests(TestCase):
             reverse("conference_detail", args=[self.conference.pk]),
         )
         self.assertFalse(TalkSubmission.objects.filter(pk=submission.pk).exists())
+
+
+class ParticipantListViewTests(TestCase):
+    def setUp(self):
+        location = Location.objects.create(
+            name="Университет",
+            address="Санкт-Петербург",
+            description="Главный корпус",
+        )
+        self.conference = Conference.objects.create(
+            name="SciConf Admin Test",
+            location=location,
+            start_date="2027-03-10",
+            end_date="2027-03-11",
+            participation_terms="Условия",
+        )
+        self.author = get_user_model().objects.create_user(
+            username="participant",
+            email="participant@example.com",
+            password="Strong-test-password-739!",
+        )
+        self.submission = TalkSubmission.objects.create(
+            title="Demo participant talk",
+            abstract="Talk abstract",
+            conference=self.conference,
+            author=self.author,
+        )
+
+    def test_staff_user_sees_participants_table(self):
+        admin_user = get_user_model().objects.create_user(
+            username="staff_admin",
+            password="Strong-test-password-739!",
+            is_staff=True,
+        )
+        self.client.force_login(admin_user)
+
+        response = self.client.get(reverse("participant_list"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, self.conference.name)
+        self.assertContains(response, self.author.username)
+        self.assertContains(response, self.submission.title)
+        self.assertContains(response, "На рассмотрении")
+        self.assertContains(response, reverse("participant_list"))
+
+    def test_anonymous_user_is_redirected_to_login(self):
+        response = self.client.get(reverse("participant_list"))
+
+        self.assertRedirects(
+            response,
+            f"{reverse('login')}?next={reverse('participant_list')}",
+        )
+
+    def test_non_staff_user_cannot_access_participants_table(self):
+        regular_user = get_user_model().objects.create_user(
+            username="regular_user",
+            password="Strong-test-password-739!",
+        )
+        self.client.force_login(regular_user)
+
+        response = self.client.get(reverse("participant_list"))
+
+        self.assertEqual(response.status_code, 403)

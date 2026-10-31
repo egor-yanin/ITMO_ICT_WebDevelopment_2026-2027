@@ -4,6 +4,7 @@ from django.contrib.auth.views import LoginView, LogoutView
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.decorators import login_required
 from django.core.paginator import Paginator
+from django.core.exceptions import PermissionDenied
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 
@@ -79,6 +80,21 @@ def conference_list(request):
             "search_query": search_query,
             "query_string": query_params.urlencode(),
         },
+    )
+
+
+@login_required(login_url="login")
+def participant_list(request):
+    if not request.user.is_staff:
+        raise PermissionDenied
+    participants = (
+        TalkSubmission.objects.select_related("conference", "author")
+        .order_by("conference__start_date", "conference__name", "author__username")
+    )
+    return render(
+        request,
+        "app/participant_list.html",
+        {"participants": participants},
     )
 
 
