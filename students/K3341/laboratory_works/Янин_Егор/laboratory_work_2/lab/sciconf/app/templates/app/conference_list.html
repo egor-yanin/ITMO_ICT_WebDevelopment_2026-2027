@@ -76,6 +76,9 @@
                                 {{ conference.start_date|date:"d.m.Y" }} — {{ conference.end_date|date:"d.m.Y" }}
                             </p>
                             <p class="small text-body-secondary">{{ conference.location.name }}</p>
+                            {% if conference.description %}
+                                <p class="text-body-secondary">{{ conference.description|truncatewords:24 }}</p>
+                            {% endif %}
                             <p class="mb-4">{{ conference.participation_terms|truncatewords:24 }}</p>
                             <a class="btn btn-outline-primary mt-auto"
                                href="{% url 'conference_detail' conference.id %}">Подробнее</a>

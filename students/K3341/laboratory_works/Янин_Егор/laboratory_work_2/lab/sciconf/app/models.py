@@ -18,6 +18,7 @@ class Theme(models.Model):
 
 class Conference(models.Model):
     name = models.CharField(max_length=100)
+    description = models.TextField(blank=True, default="")
     location = models.ForeignKey(Location, on_delete=models.CASCADE)
     themes = models.ManyToManyField(Theme)
     start_date = models.DateField()

@@ -40,7 +40,7 @@ def register(request):
         if form.is_valid():
             form.save()
             messages.success(request, "Регистрация прошла успешно. Теперь войдите в аккаунт.")
-            return redirect("login")
+            return redirect("conference_list")
     else:
         form = UserCreationForm()
         _style_form(form)

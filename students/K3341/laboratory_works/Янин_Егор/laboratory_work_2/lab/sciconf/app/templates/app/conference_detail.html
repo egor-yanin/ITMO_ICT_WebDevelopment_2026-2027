@@ -13,6 +13,12 @@
         <article class="card border-0 shadow-sm">
             <div class="card-body p-4 p-md-5">
                 <h1 class="display-6 fw-bold mt-3">{{ conference.name }}</h1>
+                {% if conference.description %}
+                    <section class="mt-4" aria-labelledby="conference-description-title">
+                        <h2 id="conference-description-title" class="h5">О конференции</h2>
+                        <p class="text-body-secondary">{{ conference.description|linebreaksbr }}</p>
+                    </section>
+                {% endif %}
 
                 <div class="d-flex flex-wrap gap-2 my-4">
                     {% for theme in conference.themes.all %}

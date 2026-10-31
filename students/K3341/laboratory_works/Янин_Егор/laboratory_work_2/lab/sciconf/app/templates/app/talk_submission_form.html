@@ -22,6 +22,13 @@
                     {{ conference.start_date|date:"d.m.Y" }} — {{ conference.end_date|date:"d.m.Y" }}
                 </p>
 
+                {% if conference.description %}
+                    <div class="mb-4">
+                        <h2 class="h5">О конференции</h2>
+                        <p class="text-body-secondary">{{ conference.description|linebreaksbr }}</p>
+                    </div>
+                {% endif %}
+
                 <div class="rounded-3 bg-body-tertiary p-3 mb-4">
                     <h2 class="h6">Условия участия</h2>
                     <p class="text-body-secondary small mb-0">
