@@ -55,6 +55,28 @@
                     </aside>
                 </div>
 
+                <div class="mt-4">
+                    <a class="btn btn-primary btn-lg"
+                       href="{% url 'submit_talk' conference.id %}">
+                        Отправить заявку на участие
+                    </a>
+                </div>
+
+                <section class="mt-5" aria-labelledby="recommended-talks-title">
+                    <h2 id="recommended-talks-title" class="h4 mb-3">Рекомендованные доклады</h2>
+                    {% for submission in recommended_submissions %}
+                        <article class="border-bottom py-3">
+                            <h3 class="h5 mb-1">{{ submission.title }}</h3>
+                            <p class="text-body-secondary mb-2">{{ submission.abstract|linebreaksbr }}</p>
+                            <span class="small text-body-secondary">
+                                Автор: {{ submission.author.get_full_name|default:submission.author.username }}
+                            </span>
+                        </article>
+                    {% empty %}
+                        <p class="text-body-secondary">Пока нет докладов, рекомендованных к публикации.</p>
+                    {% endfor %}
+                </section>
+
                 <section class="mt-5" aria-labelledby="reviews-title">
                     <h2 id="reviews-title" class="h4 mb-4">Отзывы участников</h2>
 

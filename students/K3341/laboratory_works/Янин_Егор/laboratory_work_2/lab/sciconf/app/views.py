@@ -2,11 +2,12 @@ from django.contrib import messages
 from django.contrib.auth.views import redirect_to_login
 from django.contrib.auth.views import LoginView, LogoutView
 from django.contrib.auth.forms import UserCreationForm
+from django.contrib.auth.decorators import login_required
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 
-from .forms import ConferenceReviewForm
-from .models import Conference, ConferenceReview
+from .forms import ConferenceReviewForm, TalkSubmissionForm
+from .models import Conference, ConferenceReview, TalkSubmission
 
 
 def _style_form(form):
@@ -73,6 +74,14 @@ def conference_detail(request, conference_id):
     reviews = ConferenceReview.objects.filter(conference=conference).select_related(
         "reviewer"
     ).order_by("-created_at")
+    recommended_submissions = (
+        TalkSubmission.objects.filter(
+            conference=conference,
+            recommended_to_publish=True,
+        )
+        .select_related("author")
+        .order_by("submitted_at")
+    )
     return render(
         request,
         "app/conference_detail.html",
@@ -80,5 +89,30 @@ def conference_detail(request, conference_id):
             "conference": conference,
             "review_form": review_form,
             "reviews": reviews,
+            "recommended_submissions": recommended_submissions,
         },
+    )
+
+
+@login_required(login_url="login")
+def submit_talk(request, conference_id):
+    conference = get_object_or_404(Conference, pk=conference_id)
+    if request.method == "POST":
+        form = TalkSubmissionForm(request.POST)
+        _style_form(form)
+        if form.is_valid():
+            submission = form.save(commit=False)
+            submission.conference = conference
+            submission.author = request.user
+            submission.save()
+            messages.success(request, "Заявка на выступление отправлена.")
+            return redirect("conference_detail", conference_id=conference.pk)
+    else:
+        form = TalkSubmissionForm()
+        _style_form(form)
+
+    return render(
+        request,
+        "app/talk_submission_form.html",
+        {"conference": conference, "form": form},
     )

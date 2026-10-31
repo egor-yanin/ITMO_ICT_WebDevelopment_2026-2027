@@ -2,7 +2,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 
-from .models import Conference, ConferenceReview, Location, Theme
+from .models import Conference, ConferenceReview, Location, TalkSubmission, Theme
 
 
 class RegistrationViewTests(TestCase):
@@ -119,6 +119,34 @@ class ConferenceDetailViewTests(TestCase):
 
         self.assertEqual(response.status_code, 404)
 
+    def test_only_recommended_submissions_are_displayed(self):
+        author = get_user_model().objects.create_user(
+            username="talk_author",
+            password="Strong-test-password-739!",
+        )
+        TalkSubmission.objects.create(
+            title="Рекомендованный доклад",
+            abstract="Аннотация рекомендованного доклада.",
+            conference=self.conference,
+            author=author,
+            recommended_to_publish=True,
+        )
+        TalkSubmission.objects.create(
+            title="Ожидающий решения доклад",
+            abstract="Этот доклад ещё не рассмотрен.",
+            conference=self.conference,
+            author=author,
+            recommended_to_publish=None,
+        )
+
+        response = self.client.get(
+            reverse("conference_detail", args=[self.conference.pk])
+        )
+
+        self.assertContains(response, "Рекомендованный доклад")
+        self.assertContains(response, "talk_author")
+        self.assertNotContains(response, "Ожидающий решения доклад")
+
     def test_anonymous_user_is_redirected_to_login_to_post_review(self):
         response = self.client.post(
             reverse("conference_detail", args=[self.conference.pk]),
@@ -186,3 +214,77 @@ class ConferenceDetailViewTests(TestCase):
 
         self.assertContains(response, "Полезное мероприятие.")
         self.assertContains(response, "conference_reviewer")
+
+
+class TalkSubmissionViewTests(TestCase):
+    def setUp(self):
+        location = Location.objects.create(
+            name="Университет",
+            address="Санкт-Петербург",
+            description="Главный корпус",
+        )
+        self.conference = Conference.objects.create(
+            name="SciConf 2026",
+            location=location,
+            start_date="2026-11-10",
+            end_date="2026-11-12",
+            participation_terms="Подать тезисы до 1 ноября",
+        )
+        self.author = get_user_model().objects.create_user(
+            username="talk_author",
+            password="Strong-test-password-739!",
+        )
+
+    def test_anonymous_user_is_redirected_to_login(self):
+        response = self.client.get(
+            reverse("submit_talk", args=[self.conference.pk])
+        )
+
+        self.assertRedirects(
+            response,
+            f"{reverse('login')}?next={reverse('submit_talk', args=[self.conference.pk])}",
+        )
+
+    def test_authenticated_user_can_open_submission_form(self):
+        self.client.force_login(self.author)
+
+        response = self.client.get(
+            reverse("submit_talk", args=[self.conference.pk])
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, self.conference.name)
+        self.assertContains(response, "Название доклада")
+
+    def test_valid_submission_is_bound_to_current_user_and_conference(self):
+        self.client.force_login(self.author)
+
+        response = self.client.post(
+            reverse("submit_talk", args=[self.conference.pk]),
+            {
+                "title": "Новые методы анализа данных",
+                "abstract": "Доклад о применении современных методов.",
+                "author": 99999,
+                "conference": 99999,
+            },
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("conference_detail", args=[self.conference.pk]),
+        )
+        submission = TalkSubmission.objects.get()
+        self.assertEqual(submission.author, self.author)
+        self.assertEqual(submission.conference, self.conference)
+        self.assertEqual(submission.title, "Новые методы анализа данных")
+
+    def test_invalid_submission_is_not_saved(self):
+        self.client.force_login(self.author)
+
+        response = self.client.post(
+            reverse("submit_talk", args=[self.conference.pk]),
+            {"title": "", "abstract": "Аннотация"},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(TalkSubmission.objects.exists())
