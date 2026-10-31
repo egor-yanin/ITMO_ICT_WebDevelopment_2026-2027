@@ -288,3 +288,79 @@ class TalkSubmissionViewTests(TestCase):
 
         self.assertEqual(response.status_code, 200)
         self.assertFalse(TalkSubmission.objects.exists())
+
+    def test_owner_can_edit_own_submission(self):
+        submission = TalkSubmission.objects.create(
+            title="Старое название",
+            abstract="Старая аннотация",
+            conference=self.conference,
+            author=self.author,
+            recommended_to_publish=True,
+        )
+        self.client.force_login(self.author)
+
+        response = self.client.post(
+            reverse("edit_talk", args=[submission.pk]),
+            {"title": "Новое название", "abstract": "Новая аннотация"},
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("conference_detail", args=[self.conference.pk]),
+        )
+        submission.refresh_from_db()
+        self.assertEqual(submission.title, "Новое название")
+        self.assertEqual(submission.abstract, "Новая аннотация")
+        self.assertTrue(submission.recommended_to_publish)
+
+    def test_other_user_cannot_edit_or_delete_submission(self):
+        submission = TalkSubmission.objects.create(
+            title="Чужой доклад",
+            abstract="Аннотация",
+            conference=self.conference,
+            author=self.author,
+        )
+        other_user = get_user_model().objects.create_user(
+            username="another_author",
+            password="Strong-test-password-739!",
+        )
+        self.client.force_login(other_user)
+
+        edit_response = self.client.get(reverse("edit_talk", args=[submission.pk]))
+        delete_response = self.client.get(reverse("delete_talk", args=[submission.pk]))
+
+        self.assertEqual(edit_response.status_code, 404)
+        self.assertEqual(delete_response.status_code, 404)
+        self.assertTrue(TalkSubmission.objects.filter(pk=submission.pk).exists())
+
+    def test_owner_must_confirm_deletion_with_post(self):
+        submission = TalkSubmission.objects.create(
+            title="Доклад для удаления",
+            abstract="Аннотация",
+            conference=self.conference,
+            author=self.author,
+        )
+        self.client.force_login(self.author)
+
+        response = self.client.get(reverse("delete_talk", args=[submission.pk]))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertContains(response, "Да, удалить")
+        self.assertTrue(TalkSubmission.objects.filter(pk=submission.pk).exists())
+
+    def test_owner_can_delete_submission_with_post(self):
+        submission = TalkSubmission.objects.create(
+            title="Доклад для удаления",
+            abstract="Аннотация",
+            conference=self.conference,
+            author=self.author,
+        )
+        self.client.force_login(self.author)
+
+        response = self.client.post(reverse("delete_talk", args=[submission.pk]))
+
+        self.assertRedirects(
+            response,
+            reverse("conference_detail", args=[self.conference.pk]),
+        )
+        self.assertFalse(TalkSubmission.objects.filter(pk=submission.pk).exists())

@@ -82,6 +82,12 @@ def conference_detail(request, conference_id):
         .select_related("author")
         .order_by("submitted_at")
     )
+    my_submissions = TalkSubmission.objects.none()
+    if request.user.is_authenticated:
+        my_submissions = TalkSubmission.objects.filter(
+            conference=conference,
+            author=request.user,
+        ).order_by("-submitted_at")
     return render(
         request,
         "app/conference_detail.html",
@@ -90,6 +96,7 @@ def conference_detail(request, conference_id):
             "review_form": review_form,
             "reviews": reviews,
             "recommended_submissions": recommended_submissions,
+            "my_submissions": my_submissions,
         },
     )
 
@@ -114,5 +121,58 @@ def submit_talk(request, conference_id):
     return render(
         request,
         "app/talk_submission_form.html",
-        {"conference": conference, "form": form},
+        {"conference": conference, "form": form, "is_editing": False},
+    )
+
+
+@login_required(login_url="login")
+def edit_talk(request, submission_id):
+    submission = get_object_or_404(
+        TalkSubmission,
+        pk=submission_id,
+        author=request.user,
+    )
+    if request.method == "POST":
+        form = TalkSubmissionForm(request.POST, instance=submission)
+        _style_form(form)
+        if form.is_valid():
+            form.save()
+            messages.success(request, "Заявка на выступление обновлена.")
+            return redirect(
+                "conference_detail",
+                conference_id=submission.conference,
+            )
+    else:
+        form = TalkSubmissionForm(instance=submission)
+        _style_form(form)
+
+    return render(
+        request,
+        "app/talk_submission_form.html",
+        {
+            "conference": submission.conference,
+            "form": form,
+            "is_editing": True,
+            "submission": submission,
+        },
+    )
+
+
+@login_required(login_url="login")
+def delete_talk(request, submission_id):
+    submission = get_object_or_404(
+        TalkSubmission,
+        pk=submission_id,
+        author=request.user,
+    )
+    if request.method == "POST":
+        conference_id = submission.conference
+        submission.delete()
+        messages.success(request, "Заявка на выступление удалена.")
+        return redirect("conference_detail", conference_id=conference_id)
+
+    return render(
+        request,
+        "app/talk_submission_confirm_delete.html",
+        {"submission": submission},
     )
