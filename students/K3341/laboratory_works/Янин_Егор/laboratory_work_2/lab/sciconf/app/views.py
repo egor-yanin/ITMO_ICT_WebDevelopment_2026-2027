@@ -3,11 +3,12 @@ from django.contrib.auth.views import redirect_to_login
 from django.contrib.auth.views import LoginView, LogoutView
 from django.contrib.auth.forms import UserCreationForm
 from django.contrib.auth.decorators import login_required
+from django.core.paginator import Paginator
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 
 from .forms import ConferenceReviewForm, TalkSubmissionForm
-from .models import Conference, ConferenceReview, TalkSubmission
+from .models import Conference, ConferenceReview, Location, TalkSubmission, Theme
 
 
 def _style_form(form):
@@ -45,6 +46,40 @@ def register(request):
         _style_form(form)
 
     return render(request, "app/register.html", {"form": form})
+
+
+def conference_list(request):
+    conferences = Conference.objects.select_related("location").prefetch_related("themes")
+    search_query = request.GET.get("q", "").strip()
+    theme_id = request.GET.get("theme", "").strip()
+    location_id = request.GET.get("location", "").strip()
+
+    if search_query:
+        conferences = conferences.filter(name__icontains=search_query)
+    if theme_id.isdigit():
+        conferences = conferences.filter(themes__id=int(theme_id))
+    if location_id.isdigit():
+        conferences = conferences.filter(location_id=int(location_id))
+
+    conferences = conferences.order_by("start_date", "pk").distinct()
+    paginator = Paginator(conferences, 6)
+    page_obj = paginator.get_page(request.GET.get("page"))
+    query_params = request.GET.copy()
+    query_params.pop("page", None)
+
+    return render(
+        request,
+        "app/conference_list.html",
+        {
+            "page_obj": page_obj,
+            "themes": Theme.objects.order_by("name"),
+            "locations": Location.objects.order_by("name"),
+            "selected_theme": theme_id,
+            "selected_location": location_id,
+            "search_query": search_query,
+            "query_string": query_params.urlencode(),
+        },
+    )
 
 
 def conference_detail(request, conference_id):
@@ -140,7 +175,7 @@ def edit_talk(request, submission_id):
             messages.success(request, "Заявка на выступление обновлена.")
             return redirect(
                 "conference_detail",
-                conference_id=submission.conference,
+                conference_id=submission.conference_id, # type: ignore
             )
     else:
         form = TalkSubmissionForm(instance=submission)
@@ -166,7 +201,7 @@ def delete_talk(request, submission_id):
         author=request.user,
     )
     if request.method == "POST":
-        conference_id = submission.conference
+        conference_id = submission.conference_id # type: ignore
         submission.delete()
         messages.success(request, "Заявка на выступление удалена.")
         return redirect("conference_detail", conference_id=conference_id)

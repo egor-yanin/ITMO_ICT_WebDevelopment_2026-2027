@@ -216,6 +216,78 @@ class ConferenceDetailViewTests(TestCase):
         self.assertContains(response, "conference_reviewer")
 
 
+class ConferenceListViewTests(TestCase):
+    def setUp(self):
+        self.location = Location.objects.create(
+            name="Главный корпус",
+            address="Санкт-Петербург",
+            description="Университет",
+        )
+        self.other_location = Location.objects.create(
+            name="Онлайн",
+            address="Интернет",
+            description="Удалённый формат",
+        )
+        self.theme = Theme.objects.create(
+            name="Информационные технологии",
+            description="ИТ",
+        )
+        self.other_theme = Theme.objects.create(
+            name="Математика",
+            description="Математические науки",
+        )
+        for index in range(7):
+            conference = Conference.objects.create(
+                name=f"SciConf {index}",
+                location=self.location if index < 6 else self.other_location,
+                start_date=f"2026-11-{10 + index:02d}",
+                end_date=f"2026-11-{10 + index:02d}",
+                participation_terms="Регистрация открыта",
+            )
+            conference.themes.add(
+                self.theme if index < 6 else self.other_theme
+            )
+
+    def test_conference_list_is_paginated(self):
+        response = self.client.get(reverse("conference_list"))
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(len(response.context["page_obj"]), 6)
+        self.assertEqual(response.context["page_obj"].paginator.count, 7)
+        self.assertContains(response, "Научные конференции")
+
+    def test_filters_by_name_theme_and_location(self):
+        response = self.client.get(
+            reverse("conference_list"),
+            {
+                "q": "SciConf 6",
+                "theme": self.other_theme.pk,
+                "location": self.other_location.pk,
+            },
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["page_obj"].paginator.count, 1)
+        self.assertContains(response, "SciConf 6")
+        self.assertNotContains(response, "SciConf 0")
+
+    def test_pagination_preserves_active_filters(self):
+        response = self.client.get(
+            reverse("conference_list"),
+            {"q": "SciConf", "page": 2},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["page_obj"].number, 2)
+        self.assertContains(response, "q=SciConf&amp;page=1")
+
+    def test_invalid_page_number_falls_back_to_last_page(self):
+        response = self.client.get(reverse("conference_list"), {"page": "invalid"})
+
+        self.assertEqual(response.status_code, 200)
+        self.assertEqual(response.context["page_obj"].number, 1)
+
+
 class TalkSubmissionViewTests(TestCase):
     def setUp(self):
         location = Location.objects.create(
