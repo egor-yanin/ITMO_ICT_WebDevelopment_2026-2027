@@ -2,7 +2,7 @@ from django.contrib.auth import get_user_model
 from django.test import TestCase
 from django.urls import reverse
 
-from .models import Conference, Location, Theme
+from .models import Conference, ConferenceReview, Location, Theme
 
 
 class RegistrationViewTests(TestCase):
@@ -118,3 +118,71 @@ class ConferenceDetailViewTests(TestCase):
         response = self.client.get(reverse("conference_detail", args=[99999]))
 
         self.assertEqual(response.status_code, 404)
+
+    def test_anonymous_user_is_redirected_to_login_to_post_review(self):
+        response = self.client.post(
+            reverse("conference_detail", args=[self.conference.pk]),
+            {"review_text": "Отличная конференция", "rating": 9},
+        )
+
+        self.assertRedirects(
+            response,
+            f"{reverse('login')}?next={reverse('conference_detail', args=[self.conference.pk])}",
+        )
+        self.assertFalse(ConferenceReview.objects.exists())
+
+    def test_authenticated_user_can_post_review(self):
+        reviewer = get_user_model().objects.create_user(
+            username="conference_reviewer",
+            password="Strong-test-password-739!",
+        )
+        self.client.force_login(reviewer)
+
+        response = self.client.post(
+            reverse("conference_detail", args=[self.conference.pk]),
+            {"review_text": "Хорошая программа и организация.", "rating": 9},
+        )
+
+        self.assertRedirects(
+            response,
+            reverse("conference_detail", args=[self.conference.pk]),
+        )
+        review = ConferenceReview.objects.get()
+        self.assertEqual(review.conference, self.conference)
+        self.assertEqual(review.reviewer, reviewer)
+        self.assertEqual(review.rating, 9)
+
+    def test_rating_out_of_range_does_not_create_review(self):
+        reviewer = get_user_model().objects.create_user(
+            username="conference_reviewer",
+            password="Strong-test-password-739!",
+        )
+        self.client.force_login(reviewer)
+
+        response = self.client.post(
+            reverse("conference_detail", args=[self.conference.pk]),
+            {"review_text": "Текст отзыва", "rating": 11},
+        )
+
+        self.assertEqual(response.status_code, 200)
+        self.assertFalse(ConferenceReview.objects.exists())
+
+    def test_existing_reviews_are_displayed(self):
+        reviewer = get_user_model().objects.create_user(
+            username="conference_reviewer",
+            password="Strong-test-password-739!",
+        )
+        ConferenceReview.objects.create(
+            conference=self.conference,
+            reviewer=reviewer,
+            review_text="Полезное мероприятие.",
+            rating=8,
+        )
+        self.client.force_login(reviewer)
+
+        response = self.client.get(
+            reverse("conference_detail", args=[self.conference.pk])
+        )
+
+        self.assertContains(response, "Полезное мероприятие.")
+        self.assertContains(response, "conference_reviewer")

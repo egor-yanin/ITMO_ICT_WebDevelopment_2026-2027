@@ -54,6 +54,60 @@
                         </div>
                     </aside>
                 </div>
+
+                <section class="mt-5" aria-labelledby="reviews-title">
+                    <h2 id="reviews-title" class="h4 mb-4">Отзывы участников</h2>
+
+                    {% for message in messages %}
+                        <div class="alert alert-{{ message.tags }}" role="status">{{ message }}</div>
+                    {% endfor %}
+
+                    {% for review in reviews %}
+                        <article class="border-bottom py-3">
+                            <div class="d-flex flex-wrap justify-content-between gap-2">
+                                <strong>{{ review.reviewer.username }}</strong>
+                                <span class="badge text-bg-warning">Оценка: {{ review.rating }}/10</span>
+                            </div>
+                            <p class="my-2">{{ review.review_text|linebreaksbr }}</p>
+                            <time class="small text-body-secondary"
+                                  datetime="{{ review.created_at|date:'c' }}">
+                                {{ review.created_at|date:"d.m.Y H:i" }}
+                            </time>
+                        </article>
+                    {% empty %}
+                        <p class="text-body-secondary">Пока нет отзывов. Будьте первым.</p>
+                    {% endfor %}
+
+                    <div class="mt-4">
+                        <h3 class="h5 mb-3">Оставить отзыв</h3>
+                        {% if user.is_authenticated %}
+                            <form method="post">
+                                {% csrf_token %}
+                                {% if review_form.non_field_errors %}
+                                    <div class="alert alert-danger" role="alert">
+                                        {{ review_form.non_field_errors }}
+                                    </div>
+                                {% endif %}
+                                {% for field in review_form %}
+                                    <div class="mb-3">
+                                        <label for="{{ field.id_for_label }}" class="form-label fw-semibold">
+                                            {% if field.name == "review_text" %}Комментарий{% else %}Оценка (1–10){% endif %}
+                                        </label>
+                                        {{ field }}
+                                        {% for error in field.errors %}
+                                            <div class="invalid-feedback d-block" role="alert">{{ error }}</div>
+                                        {% endfor %}
+                                    </div>
+                                {% endfor %}
+                                <button type="submit" class="btn btn-primary">Опубликовать отзыв</button>
+                            </form>
+                        {% else %}
+                            <p class="text-body-secondary">
+                                Чтобы оставить отзыв, <a href="{% url 'login' %}?next={{ request.path|urlencode }}">войдите в аккаунт</a>.
+                            </p>
+                        {% endif %}
+                    </div>
+                </section>
             </div>
         </article>
     </main>

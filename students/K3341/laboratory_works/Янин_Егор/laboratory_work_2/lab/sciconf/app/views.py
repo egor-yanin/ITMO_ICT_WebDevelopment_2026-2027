@@ -1,10 +1,12 @@
 from django.contrib import messages
+from django.contrib.auth.views import redirect_to_login
 from django.contrib.auth.views import LoginView, LogoutView
 from django.contrib.auth.forms import UserCreationForm
 from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
 
-from .models import Conference
+from .forms import ConferenceReviewForm
+from .models import Conference, ConferenceReview
 
 
 def _style_form(form):
@@ -49,4 +51,34 @@ def conference_detail(request, conference_id):
         Conference.objects.select_related("location").prefetch_related("themes"),
         pk=conference_id,
     )
-    return render(request, "app/conference_detail.html", {"conference": conference})
+    if request.method == "POST":
+        if not request.user.is_authenticated:
+            return redirect_to_login(
+                request.get_full_path(),
+                login_url=reverse_lazy("login"),
+            )
+        review_form = ConferenceReviewForm(request.POST)
+        _style_form(review_form)
+        if review_form.is_valid():
+            review = review_form.save(commit=False)
+            review.conference = conference
+            review.reviewer = request.user
+            review.save()
+            messages.success(request, "Ваш отзыв опубликован.")
+            return redirect("conference_detail", conference_id=conference.pk)
+    else:
+        review_form = ConferenceReviewForm()
+        _style_form(review_form)
+
+    reviews = ConferenceReview.objects.filter(conference=conference).select_related(
+        "reviewer"
+    ).order_by("-created_at")
+    return render(
+        request,
+        "app/conference_detail.html",
+        {
+            "conference": conference,
+            "review_form": review_form,
+            "reviews": reviews,
+        },
+    )
