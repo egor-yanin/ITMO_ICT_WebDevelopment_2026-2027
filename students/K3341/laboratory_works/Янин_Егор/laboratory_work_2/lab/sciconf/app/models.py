@@ -49,3 +49,12 @@ class ConferenceReview(models.Model):
 
     def __str__(self):
         return f"Review by {self.reviewer} for {self.conference}"
+
+class Profile(models.Model):
+    user = models.OneToOneField('auth.User', on_delete=models.CASCADE)
+    name = models.CharField(max_length=100)
+    surname = models.CharField(max_length=100)
+    bio = models.TextField(blank=True)
+
+    def __str__(self):
+        return self.user.username
