@@ -1,8 +1,10 @@
 from django.contrib import messages
 from django.contrib.auth.views import LoginView, LogoutView
 from django.contrib.auth.forms import UserCreationForm
-from django.shortcuts import redirect, render
+from django.shortcuts import get_object_or_404, redirect, render
 from django.urls import reverse_lazy
+
+from .models import Conference
 
 
 def _style_form(form):
@@ -40,3 +42,11 @@ def register(request):
         _style_form(form)
 
     return render(request, "app/register.html", {"form": form})
+
+
+def conference_detail(request, conference_id):
+    conference = get_object_or_404(
+        Conference.objects.select_related("location").prefetch_related("themes"),
+        pk=conference_id,
+    )
+    return render(request, "app/conference_detail.html", {"conference": conference})
