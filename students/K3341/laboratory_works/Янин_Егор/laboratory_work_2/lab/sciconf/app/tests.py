@@ -287,6 +287,31 @@ class ConferenceListViewTests(TestCase):
         self.assertEqual(response.status_code, 200)
         self.assertEqual(response.context["page_obj"].number, 1)
 
+    def test_header_links_logo_home_and_shows_login_for_anonymous_user(self):
+        response = self.client.get(reverse("conference_list"))
+
+        self.assertContains(
+            response,
+            f'href="{reverse("conference_list")}" aria-label="SciConf — главная"',
+        )
+        self.assertContains(response, f'href="{reverse("login")}"')
+        self.assertContains(response, "Войти")
+        self.assertNotContains(response, "Выйти")
+
+    def test_header_shows_logout_for_authenticated_user(self):
+        user = get_user_model().objects.create_user(
+            username="header_user",
+            password="Strong-test-password-739!",
+        )
+        self.client.force_login(user)
+
+        response = self.client.get(reverse("conference_list"))
+
+        self.assertContains(response, "header_user")
+        self.assertContains(response, "Выйти")
+        self.assertNotContains(response, "Войти")
+        self.assertContains(response, f'action="{reverse("logout")}"')
+
 
 class TalkSubmissionViewTests(TestCase):
     def setUp(self):
